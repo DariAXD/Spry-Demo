@@ -1,6 +1,14 @@
 # AI Chat Interface
 
-A modern chat interface that uses OpenAI's GPT models to provide intelligent responses, with support for text messages, image uploads, and camera capture.
+A modern chat interface that uses OpenAI's GPT-4o model through the Responses API, with support for text messages, image uploads, and camera capture. The application features robust conversation state management for maintaining context and history.
+
+## Latest Updates
+
+- Migrated from Chat Completion API to Responses API
+- Implemented comprehensive conversation state management
+- Upgraded to GPT-4o model for enhanced performance
+- Added persistent conversation history
+- Improved context handling and memory management
 
 ## Features
 
@@ -18,12 +26,14 @@ A modern chat interface that uses OpenAI's GPT models to provide intelligent res
   - CSS3
   - JavaScript (ES6+)
   - Vite (Build tool)
+  - State Management System
 
 - Backend:
   - Node.js
   - Express.js
-  - OpenAI API
+  - OpenAI Responses API
   - CORS
+  - Conversation State Management
 
 ## Setup
 
@@ -85,7 +95,9 @@ The application will be available at:
 
 - Maximum image size: 5MB
 - Supported image formats: JPEG, PNG
-- The application uses the gpt-4o-mini model
+- The application uses the GPT-4o model
+- Conversations are maintained with full context and history
+- State management ensures consistent conversation flow
 
 ## License
 

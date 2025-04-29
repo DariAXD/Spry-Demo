@@ -28,6 +28,9 @@ const client = new OpenAI({
     apiKey: process.env['OPENAI_API_KEY']
 });
 
+// Store conversation state
+let previousResponseId = null;
+
 // Test endpoint
 app.get('/api/test', (req, res) => {
     res.json({ message: 'Server is running!' });
@@ -47,42 +50,74 @@ app.post('/api/chat', async (req, res) => {
             throw new Error('OpenAI API key is missing');
         }
 
-        let formattedMessages = messages;
-
-        // If there's image data, format it according to the OpenAI specification
+        // Prepare the input content
+        let inputContent = [];
+        
         if (imageData) {
             console.log('Processing image data');
             const base64Image = imageData.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-            
-            formattedMessages = [
-                {
+            inputContent.push({
+                role: "user",
+                content: [
+                    {
+                        type: "input_image",
+                        image_url: `data:image/jpeg;base64,${base64Image}`
+                    }
+                ]
+            });
+        }
+
+        // Add text message if present
+        if (messages.length > 0 && messages[0].content) {
+            if (inputContent.length === 0) {
+                inputContent.push({
                     role: "user",
                     content: [
                         {
-                            type: "text",
-                            text: "What is in this image?",
-                        },
-                        {
-                            type: "image_url",
-                            image_url: {
-                                url: `data:image/jpeg;base64,${base64Image}`
-                            },
-                        },
-                    ],
-                }
-            ];
+                            type: "input_text",
+                            text: messages[0].content
+                        }
+                    ]
+                });
+            } else {
+                // If we already have an image input, add the text to the same message
+                inputContent[0].content.push({
+                    type: "input_text",
+                    text: messages[0].content
+                });
+            }
         }
 
-        console.log('Sending request to OpenAI with model: gpt-4o-mini');
-        const chatCompletion = await client.chat.completions.create({
-            messages: formattedMessages,
-            model: 'gpt-4o-mini'
+        // Create the response using the Responses API
+        const response = await fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o",
+                input: inputContent,
+                previous_response_id: previousResponseId,
+                store: true
+            })
         });
 
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('OpenAI API Error Details:', errorData);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const responseData = await response.json();
         console.log('Received response from OpenAI');
-        if (chatCompletion.choices && chatCompletion.choices[0]) {
-            res.json({ response: chatCompletion.choices[0].message.content });
+
+        // Update the previous response ID for the next request
+        if (responseData.output && responseData.output[0] && responseData.output[0].content && responseData.output[0].content[0]) {
+            previousResponseId = responseData.id;
+            res.json({ response: responseData.output[0].content[0].text });
         } else {
+            console.error('Invalid response format:', responseData);
             throw new Error('Invalid response from OpenAI');
         }
     } catch (error) {
@@ -94,7 +129,7 @@ app.post('/api/chat', async (req, res) => {
                 error: 'Configuration error',
                 details: 'API key is missing or invalid'
             });
-        } else if (error.response?.status === 429) {
+        } else if (error.message.includes('429')) {
             res.status(429).json({ 
                 error: 'Rate limit exceeded',
                 details: 'Please try again in a few moments'
@@ -126,5 +161,5 @@ app.use((err, req, res, next) => {
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}`);
     console.log('OpenAI API Key:', process.env.OPENAI_API_KEY ? 'Present' : 'Missing');
-    console.log('Using OpenAI Model: gpt-4o-mini');
+    console.log('Using OpenAI Responses API');
 }); 
